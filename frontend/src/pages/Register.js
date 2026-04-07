@@ -23,7 +23,7 @@ const Register = () => {
     setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
@@ -41,7 +41,7 @@ const Register = () => {
       return;
     }
 
-    const result = register(formData.email, formData.password, formData.name);
+    const result = await register(formData.email, formData.password, formData.name);
     
     if (result.success) {
       setSuccess('Registration successful! Redirecting to login...');

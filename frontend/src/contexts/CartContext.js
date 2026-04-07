@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import api from '../services/api';
 
 const CartContext = createContext();
 
@@ -13,52 +14,119 @@ export const useCart = () => {
 export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
 
+  const transformItems = (items) => {
+    return items.map(item => ({
+      id: item.book_id,
+      title: item.title,
+      author: item.author,
+      price: Number(item.price),
+      quantity: item.quantity,
+      imageUrl: item.imageUrl || item.cover_image_url || item.image_url || '',
+    }));
+  };
+
   useEffect(() => {
-    const storedCart = localStorage.getItem('bookHubCart');
-    if (storedCart) {
-      setCartItems(JSON.parse(storedCart));
-    }
+    const loadCart = async () => {
+      try {
+        const response = await api.get('/cart');
+        setCartItems(transformItems(response.data.items || []));
+      } catch (error) {
+        const storedCart = localStorage.getItem('bookHubCart');
+        if (storedCart) {
+          setCartItems(JSON.parse(storedCart));
+        }
+      }
+    };
+
+    loadCart();
   }, []);
 
   useEffect(() => {
     localStorage.setItem('bookHubCart', JSON.stringify(cartItems));
   }, [cartItems]);
 
-  const addToCart = (book) => {
-    setCartItems(prevItems => {
-      const existingItem = prevItems.find(item => item.id === book.id);
-      
-      if (existingItem) {
-        return prevItems.map(item =>
-          item.id === book.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      
-      return [...prevItems, { ...book, quantity: 1 }];
-    });
+  const refreshCart = async () => {
+    try {
+      const response = await api.get('/cart');
+      setCartItems(transformItems(response.data.items || []));
+    } catch (error) {
+      console.error('Failed to refresh cart:', error);
+    }
   };
 
-  const removeFromCart = (bookId) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== bookId));
+  const addToCart = async (book) => {
+    try {
+      await api.post('/cart/add', { book_id: book.id, quantity: 1 });
+      await refreshCart();
+      return { success: true };
+    } catch (error) {
+      console.error('Add to cart error:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Could not add to cart',
+      };
+    }
   };
 
-  const updateQuantity = (bookId, quantity) => {
+  const removeFromCart = async (bookId) => {
+    try {
+      await api.delete(`/cart/remove/${bookId}`);
+      await refreshCart();
+      return { success: true };
+    } catch (error) {
+      console.error('Remove from cart error:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Could not remove item',
+      };
+    }
+  };
+
+  const updateQuantity = async (bookId, quantity) => {
     if (quantity <= 0) {
-      removeFromCart(bookId);
+      await removeFromCart(bookId);
       return;
     }
-    
-    setCartItems(prevItems =>
-      prevItems.map(item =>
-        item.id === bookId ? { ...item, quantity } : item
-      )
-    );
+
+    try {
+      await api.put(`/cart/update/${bookId}`, { quantity });
+      await refreshCart();
+      return { success: true };
+    } catch (error) {
+      console.error('Update cart quantity error:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Could not update quantity',
+      };
+    }
   };
 
-  const clearCart = () => {
-    setCartItems([]);
+  const clearCart = async () => {
+    try {
+      await api.delete('/cart/clear');
+      setCartItems([]);
+      return { success: true };
+    } catch (error) {
+      console.error('Clear cart error:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Could not clear cart',
+      };
+    }
+  };
+
+  const placeOrder = async ({ shipping_address, billing_address, payment_method }) => {
+    try {
+      await api.post('/orders/create', { shipping_address, billing_address, payment_method });
+      await refreshCart();
+      return { success: true };
+    } catch (error) {
+      console.error('Place order error:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Could not place order',
+      };
+    }
   };
 
   const getCartTotal = () => {
@@ -77,7 +145,8 @@ export const CartProvider = ({ children }) => {
       updateQuantity,
       clearCart,
       getCartTotal,
-      getCartCount
+      getCartCount,
+      placeOrder
     }}>
       {children}
     </CartContext.Provider>

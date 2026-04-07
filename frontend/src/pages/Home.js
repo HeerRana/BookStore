@@ -22,6 +22,20 @@ const Home = () => {
     return matchesSearch && matchesCategory;
   });
 
+  const getBookCoverUrl = (title, fallbackUrl) => {
+    const normalizedTitle = title?.toLowerCase().trim();
+    const titleCoverMap = {
+      'atomic habits': 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=600&fit=crop',
+      'the alchemist': 'https://images.unsplash.com/photo-1495446815901-a7297e633e8d?w=400&h=600&fit=crop',
+      'deep work': 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400&h=600&fit=crop',
+      'sapiens': 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=400&h=600&fit=crop',
+      'the psychology of money': 'https://images.unsplash.com/photo-1513451713350-dee890297c4a?w=400&h=600&fit=crop',
+      'thinking, fast and slow': 'https://images.unsplash.com/photo-1492724441997-5dc865305da7?w=400&h=600&fit=crop',
+    };
+
+    return titleCoverMap[normalizedTitle] || fallbackUrl || 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&h=600&fit=crop';
+  };
+
   const handleAddToCart = (book) => {
     if (book.stock > 0) {
       addToCart(book);
@@ -102,9 +116,7 @@ const Home = () => {
                 {/* Book Image */}
                 <div className="h-64 overflow-hidden bg-slate-100">
                   <img
-                    src={book.imageUrl}
-                    alt={book.title}
-                    data-testid={`book-image-${book.id}`}
+                    src={getBookCoverUrl(book.title, book.imageUrl)}
                     className="w-full h-full object-cover"
                   />
                 </div>

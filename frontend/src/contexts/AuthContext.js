@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect } from 'react';
+import api from '../services/api';
 
 const AuthContext = createContext();
 
@@ -12,71 +13,83 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [users, setUsers] = useState(() => {
-    // Initialize users synchronously
-    const storedUsers = localStorage.getItem('bookHubUsers');
-    if (storedUsers) {
-      return JSON.parse(storedUsers);
-    } else {
-      // Initialize with admin user
-      const defaultUsers = [
-        { email: 'admin@gmail.com', password: 'admin', name: 'Admin User' }
-      ];
-      localStorage.setItem('bookHubUsers', JSON.stringify(defaultUsers));
-      return defaultUsers;
-    }
-  });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is already logged in
-    const storedUser = localStorage.getItem('bookHubUser');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+    const initAuth = async () => {
+      const token = localStorage.getItem('bookHubToken');
+
+      if (token) {
+        try {
+          const response = await api.get('/auth/profile');
+          setUser(response.data);
+          localStorage.setItem('bookHubUser', JSON.stringify(response.data));
+        } catch (error) {
+          console.error('Failed to fetch profile:', error);
+          logout();
+        }
+      }
+
+      setLoading(false);
+    };
+
+    initAuth();
   }, []);
 
-  const register = (email, password, name) => {
-    // Check if user already exists
-    const existingUser = users.find(u => u.email === email);
-    if (existingUser) {
-      return { success: false, message: 'User already exists' };
-    }
+  const register = async (email, password, name) => {
+    try {
+      const response = await api.post('/auth/register', {
+        email,
+        password,
+        first_name: name,
+        last_name: ''
+      });
 
-    const newUser = { email, password, name };
-    const updatedUsers = [...users, newUser];
-    setUsers(updatedUsers);
-    localStorage.setItem('bookHubUsers', JSON.stringify(updatedUsers));
-    
-    return { success: true, message: 'Registration successful' };
+      if (response.status === 201) {
+        return { success: true, message: 'Registration successful' };
+      }
+
+      return { success: false, message: 'Registration failed' };
+    } catch (error) {
+      console.error('Register error:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Registration failed',
+      };
+    }
   };
 
-  const login = (email, password) => {
-    console.log('Login attempt:', { email, password, usersCount: users.length });
-    console.log('Available users:', users);
-    const foundUser = users.find(u => u.email === email && u.password === password);
-    console.log('Found user:', foundUser);
+  const login = async (email, password) => {
+    try {
+      const response = await api.post('/auth/login', { email, password });
+      const { user: loggedUser, token } = response.data;
 
-    if (foundUser) {
-      setUser(foundUser);
-      localStorage.setItem('bookHubUser', JSON.stringify(foundUser));
-      console.log('Login successful');
-      return { success: true, user: foundUser };
+      setUser(loggedUser);
+      localStorage.setItem('bookHubUser', JSON.stringify(loggedUser));
+      localStorage.setItem('bookHubToken', token);
+
+      return { success: true, user: loggedUser };
+    } catch (error) {
+      console.error('Login error:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Invalid credentials',
+      };
     }
-    console.log('Login failed');
-    return { success: false, message: 'Invalid credentials' };
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('bookHubUser');
+    localStorage.removeItem('bookHubToken');
   };
 
   const isAdmin = () => {
-    return user?.email === 'admin@gmail.com';
+    return user?.role === 'admin' || user?.email === 'admin@gmail.com';
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, register, isAdmin }}>
+    <AuthContext.Provider value={{ user, login, logout, register, isAdmin, loading }}>
       {children}
     </AuthContext.Provider>
   );

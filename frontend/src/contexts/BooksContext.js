@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import api from '../services/api';
 
 const BooksContext = createContext();
 
@@ -76,14 +77,37 @@ const initialBooks = [
 export const BooksProvider = ({ children }) => {
   const [books, setBooks] = useState([]);
 
+  const transformBook = (book) => ({
+    id: book.id,
+    title: book.title,
+    author: book.author,
+    price: Number(book.price),
+    stock: Number(book.stock_quantity ?? book.stock ?? 0),
+    category: book.category_name || book.category || 'General',
+    rating: book.rating ?? 4.5,
+    imageUrl: book.cover_image_url || book.imageUrl || book.image_url || 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&h=600&fit=crop',
+    description: book.description || '',
+  });
+
   useEffect(() => {
-    const storedBooks = localStorage.getItem('bookHubBooks');
-    if (storedBooks) {
-      setBooks(JSON.parse(storedBooks));
-    } else {
-      setBooks(initialBooks);
-      localStorage.setItem('bookHubBooks', JSON.stringify(initialBooks));
-    }
+    const loadBooks = async () => {
+      try {
+        const response = await api.get('/books');
+        const fetchedBooks = (response.data.books || []).map(transformBook);
+        setBooks(fetchedBooks);
+        localStorage.setItem('bookHubBooks', JSON.stringify(fetchedBooks));
+      } catch (error) {
+        const storedBooks = localStorage.getItem('bookHubBooks');
+        if (storedBooks) {
+          setBooks(JSON.parse(storedBooks));
+        } else {
+          setBooks(initialBooks);
+          localStorage.setItem('bookHubBooks', JSON.stringify(initialBooks));
+        }
+      }
+    };
+
+    loadBooks();
   }, []);
 
   const addBook = (book) => {

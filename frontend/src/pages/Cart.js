@@ -5,7 +5,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
 const Cart = () => {
-  const { cartItems, removeFromCart, updateQuantity, getCartTotal, clearCart } = useCart();
+  const { cartItems, removeFromCart, updateQuantity, getCartTotal, clearCart, placeOrder } = useCart();
   const [showCheckout, setShowCheckout] = useState(false);
   const [shippingInfo, setShippingInfo] = useState({
     fullName: '',
@@ -31,24 +31,38 @@ const Cart = () => {
     });
   };
 
-  const handleCheckout = (e) => {
+  const [checkoutError, setCheckoutError] = useState('');
+
+  const handleCheckout = async (e) => {
     e.preventDefault();
-    // Here you would typically send the order to backend
-    setOrderPlaced(true);
-    clearCart();
-    setTimeout(() => {
-      setOrderPlaced(false);
-      setShowCheckout(false);
-      setShippingInfo({
-        fullName: '',
-        email: '',
-        phone: '',
-        address: '',
-        city: '',
-        state: '',
-        zipCode: ''
-      });
-    }, 3000);
+    setCheckoutError('');
+
+    const orderPayload = {
+      shipping_address: `${shippingInfo.fullName}, ${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state}, ${shippingInfo.zipCode}`,
+      billing_address: `${shippingInfo.fullName}, ${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state}, ${shippingInfo.zipCode}`,
+      payment_method: 'credit_card'
+    };
+
+    const result = await placeOrder(orderPayload);
+
+    if (result.success) {
+      setOrderPlaced(true);
+      setTimeout(() => {
+        setOrderPlaced(false);
+        setShowCheckout(false);
+        setShippingInfo({
+          fullName: '',
+          email: '',
+          phone: '',
+          address: '',
+          city: '',
+          state: '',
+          zipCode: ''
+        });
+      }, 3000);
+    } else {
+      setCheckoutError(result.message);
+    }
   };
 
   if (orderPlaced) {
@@ -109,7 +123,12 @@ const Cart = () => {
             <p className="text-slate-600 mb-8">Please provide your shipping details</p>
 
             <form onSubmit={handleCheckout} className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {checkoutError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                {checkoutError}
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Full Name *
