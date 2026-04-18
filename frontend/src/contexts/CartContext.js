@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
+import { useAuth } from './AuthContext';
 
 const CartContext = createContext();
 
@@ -12,7 +13,10 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
+  const { user, loading } = useAuth();
   const [cartItems, setCartItems] = useState([]);
+
+  const storageKey = user ? `bookHubCart:${user.id}` : null;
 
   const transformItems = (items) => {
     return items.map(item => ({
@@ -27,23 +31,39 @@ export const CartProvider = ({ children }) => {
 
   useEffect(() => {
     const loadCart = async () => {
+      if (loading) {
+        return;
+      }
+
+      if (!user) {
+        setCartItems([]);
+        localStorage.removeItem('bookHubCart');
+        return;
+      }
+
       try {
         const response = await api.get('/cart');
         setCartItems(transformItems(response.data.items || []));
       } catch (error) {
-        const storedCart = localStorage.getItem('bookHubCart');
+        const storedCart = storageKey ? localStorage.getItem(storageKey) : null;
         if (storedCart) {
           setCartItems(JSON.parse(storedCart));
+        } else {
+          setCartItems([]);
         }
       }
     };
 
     loadCart();
-  }, []);
+  }, [loading, storageKey, user]);
 
   useEffect(() => {
-    localStorage.setItem('bookHubCart', JSON.stringify(cartItems));
-  }, [cartItems]);
+    if (!storageKey) {
+      return;
+    }
+
+    localStorage.setItem(storageKey, JSON.stringify(cartItems));
+  }, [cartItems, storageKey]);
 
   const refreshCart = async () => {
     try {

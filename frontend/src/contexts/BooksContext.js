@@ -110,29 +110,74 @@ export const BooksProvider = ({ children }) => {
     loadBooks();
   }, []);
 
-  const addBook = (book) => {
-    const newBook = {
-      ...book,
-      id: Date.now(),
-    };
-    const updatedBooks = [...books, newBook];
-    setBooks(updatedBooks);
-    localStorage.setItem('bookHubBooks', JSON.stringify(updatedBooks));
-    return newBook;
+  const addBook = async (book) => {
+    try {
+      const response = await api.post('/books', {
+        title: book.title,
+        author: book.author,
+        price: book.price,
+        stock: book.stock,
+        category: book.category,
+        rating: book.rating,
+        imageUrl: book.imageUrl,
+        description: book.description || '',
+      });
+      const savedBook = transformBook(response.data.book);
+      const updatedBooks = [...books, savedBook];
+      setBooks(updatedBooks);
+      localStorage.setItem('bookHubBooks', JSON.stringify(updatedBooks));
+      return { success: true, book: savedBook };
+    } catch (error) {
+      console.error('Add book error:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Failed to save book to database',
+      };
+    }
   };
 
-  const updateBook = (id, updatedBook) => {
-    const updatedBooks = books.map(book =>
-      book.id === id ? { ...book, ...updatedBook } : book
-    );
-    setBooks(updatedBooks);
-    localStorage.setItem('bookHubBooks', JSON.stringify(updatedBooks));
+  const updateBook = async (id, updatedBook) => {
+    try {
+      const response = await api.put(`/books/${id}`, {
+        title: updatedBook.title,
+        author: updatedBook.author,
+        price: updatedBook.price,
+        stock: updatedBook.stock,
+        category: updatedBook.category,
+        rating: updatedBook.rating,
+        imageUrl: updatedBook.imageUrl,
+        description: updatedBook.description || '',
+      });
+      const savedBook = transformBook(response.data.book);
+      const updatedBooks = books.map(book =>
+        book.id === id ? { ...book, ...savedBook } : book
+      );
+      setBooks(updatedBooks);
+      localStorage.setItem('bookHubBooks', JSON.stringify(updatedBooks));
+      return { success: true, book: savedBook };
+    } catch (error) {
+      console.error('Update book error:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Failed to update book in database',
+      };
+    }
   };
 
-  const deleteBook = (id) => {
-    const updatedBooks = books.filter(book => book.id !== id);
-    setBooks(updatedBooks);
-    localStorage.setItem('bookHubBooks', JSON.stringify(updatedBooks));
+  const deleteBook = async (id) => {
+    try {
+      await api.delete(`/books/${id}`);
+      const updatedBooks = books.filter(book => book.id !== id);
+      setBooks(updatedBooks);
+      localStorage.setItem('bookHubBooks', JSON.stringify(updatedBooks));
+      return { success: true };
+    } catch (error) {
+      console.error('Delete book error:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Failed to delete book from database',
+      };
+    }
   };
 
   const getBookById = (id) => {

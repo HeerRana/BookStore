@@ -12,6 +12,7 @@ const AdminBooks = () => {
   const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
   const [editingBook, setEditingBook] = useState(null);
+  const [formError, setFormError] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     author: '',
@@ -39,6 +40,7 @@ const AdminBooks = () => {
       imageUrl: ''
     });
     setEditingBook(null);
+    setFormError('');
     setShowForm(false);
   };
 
@@ -63,9 +65,10 @@ const AdminBooks = () => {
     setShowForm(true);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
+    setFormError('');
+
     const bookData = {
       title: formData.title,
       author: formData.author,
@@ -76,18 +79,26 @@ const AdminBooks = () => {
       imageUrl: formData.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=600&fit=crop'
     };
 
-    if (editingBook) {
-      updateBook(editingBook.id, bookData);
-    } else {
-      addBook(bookData);
+    const result = editingBook
+      ? await updateBook(editingBook.id, bookData)
+      : await addBook(bookData);
+
+    if (!result.success) {
+      setFormError(result.message || 'Unable to save book. Please check the backend connection.');
+      return;
     }
 
     resetForm();
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this book?')) {
-      deleteBook(id);
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this book?')) {
+      return;
+    }
+
+    const result = await deleteBook(id);
+    if (!result.success) {
+      setFormError(result.message || 'Unable to delete book. Please check the backend connection.');
     }
   };
 
@@ -132,6 +143,11 @@ const AdminBooks = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="px-8 py-6 space-y-5">
+                {formError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                    {formError}
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Title *
